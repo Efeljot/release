@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Days without AV-11406 being released</title>
+<style>
+  :root { --red:#e11d2e; --red-dark:#8f0f1b; --bg:#0d0f14; --fg:#f4f5f7; --muted:#8a90a0; }
+  * { box-sizing:border-box; }
+  html,body { height:100%; margin:0; }
+  body {
+    background: radial-gradient(ellipse at top, #1a1e29 0%, var(--bg) 60%);
+    color:var(--fg);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display:flex; flex-direction:column; align-items:center; justify-content:space-between;
+    padding:32px 16px 48px; text-align:center; overflow-x:hidden;
+  }
+  h1 { font-size:clamp(1.2rem,4vw,2rem); font-weight:600; letter-spacing:.02em; margin:0; max-width:900px; }
+  h1 span { color:var(--red); font-weight:800; }
+  main { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; }
+  .timer { display:flex; gap:clamp(8px,2.5vw,28px); flex-wrap:wrap; justify-content:center; }
+  .unit { min-width:clamp(72px,18vw,170px); }
+  .num {
+    font-size:clamp(3rem,13vw,8rem); font-weight:800; line-height:1;
+    font-variant-numeric:tabular-nums; font-feature-settings:"tnum";
+  }
+  .lbl { color:var(--muted); text-transform:uppercase; letter-spacing:.2em; font-size:clamp(.65rem,1.8vw,.9rem); margin-top:8px; }
+  .since { margin-top:28px; color:var(--muted); font-size:.95rem; }
+  #status { margin-top:20px; font-size:clamp(1.6rem,6vw,3.2rem); font-weight:900; color:#3ddc84; min-height:1.2em; }
+
+  /* BIG RED BUTTON */
+  #stop {
+    appearance:none; border:0; cursor:pointer; color:#fff;
+    font-size:clamp(1.8rem,6vw,3rem); font-weight:900; letter-spacing:.15em;
+    width:min(86vw,360px); height:min(86vw,360px); max-height:200px; border-radius:999px;
+    background: radial-gradient(circle at 35% 30%, #ff5a66, var(--red) 45%, var(--red-dark));
+    box-shadow: 0 10px 0 #5c0912, 0 18px 40px rgba(225,29,46,.45), inset 0 -6px 12px rgba(0,0,0,.25);
+    transition: transform .08s, box-shadow .08s;
+  }
+  #stop:hover { filter:brightness(1.08); }
+  #stop:active { transform:translateY(8px); box-shadow:0 2px 0 #5c0912, 0 6px 16px rgba(225,29,46,.4); }
+  #stop[disabled] { filter:grayscale(.9) brightness(.5); cursor:default; transform:translateY(8px); box-shadow:0 2px 0 #333; }
+
+  #stop.emergency {
+    background: radial-gradient(circle at 35% 30%, #ffb347, #ff7a00 45%, #a84300);
+    box-shadow: 0 10px 0 #5e2700, 0 18px 40px rgba(255,122,0,.45), inset 0 -6px 12px rgba(0,0,0,.25);
+    font-size:clamp(1.4rem,5vw,2.4rem); animation:blink 1s ease-in-out infinite;
+  }
+  #stop.emergency:active { box-shadow:0 2px 0 #5e2700, 0 6px 16px rgba(255,122,0,.4); }
+  @keyframes blink { 50% { filter:brightness(1.25); } }
+
+  /* MODAL */
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.75); display:none; align-items:center; justify-content:center; padding:16px; z-index:10; }
+  .overlay.open { display:flex; }
+  .modal {
+    background:#1b0d10; border:3px solid var(--red); border-radius:16px; max-width:480px; width:100%;
+    padding:28px 24px; box-shadow:0 0 60px rgba(225,29,46,.5); animation:pop .18s ease-out;
+  }
+  .modal p { font-size:1.15rem; line-height:1.5; margin:0 0 24px; }
+  .modal b { color:var(--red); text-transform:uppercase; }
+  .actions { display:flex; gap:12px; justify-content:center; }
+  .actions button { flex:1; padding:14px 0; font-size:1.05rem; font-weight:700; border-radius:10px; border:2px solid transparent; cursor:pointer; }
+  #confirm { background:var(--red); color:#fff; }
+  #cancel  { background:transparent; color:var(--fg); border-color:#555; }
+  @keyframes pop { from { transform:scale(.85); opacity:0 } to { transform:scale(1); opacity:1 } }
+
+  /* VICTORY */
+  canvas#fx { position:fixed; inset:0; pointer-events:none; z-index:5; }
+  body.won .num { color:#3ddc84; animation:pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 50% { transform:scale(1.06); } }
+</style>
+</head>
+<body>
+
+<h1>Days without <span>AV-11406</span> being released</h1>
+
+<main>
+  <div class="timer" role="timer" aria-live="off">
+    <div class="unit"><div class="num" id="d">0</div><div class="lbl">days</div></div>
+    <div class="unit"><div class="num" id="h">00</div><div class="lbl">hours</div></div>
+    <div class="unit"><div class="num" id="m">00</div><div class="lbl">minutes</div></div>
+    <div class="unit"><div class="num" id="s">00</div><div class="lbl">seconds</div></div>
+  </div>
+  <div class="since">counting since 5 November</div>
+  <div id="status"></div>
+</main>
+
+<button id="stop" type="button">STOP</button>
+
+<div class="overlay" id="overlay" role="dialog" aria-modal="true">
+  <div class="modal">
+    <p id="msg"><b>!danger!</b> pressing stop means that it was released and it will stop the timer</p>
+    <div class="actions">
+      <button id="confirm" type="button">Stop</button>
+      <button id="cancel" type="button">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="fx"></canvas>
+
+<script>
+(function () {
+  // ---- CONFIG: start date (local time). Year = current year. ----
+  var START = new Date(new Date().getFullYear(), 10, 5, 0, 0, 0).getTime(); // 5 Nov, 00:00
+  var KEY = "av11406_stopped_at";
+  var KEY_START = "av11406_start";
+  try { var saved = parseInt(localStorage.getItem(KEY_START), 10); if (saved) START = saved; } catch (e) {}
+
+  var $ = function (id) { return document.getElementById(id); };
+  var els = { d:$("d"), h:$("h"), m:$("m"), s:$("s") };
+  var stopBtn = $("stop"), overlay = $("overlay");
+  var stoppedAt = null;
+  try { stoppedAt = parseInt(localStorage.getItem(KEY), 10) || null; } catch (e) {}
+
+  function pad(n) { return String(n).padStart(2, "0"); }
+
+  function render() {
+    var end = stoppedAt || Date.now();
+    var diff = Math.max(0, Math.floor((end - START) / 1000));
+    els.d.textContent = Math.floor(diff / 86400);
+    els.h.textContent = pad(Math.floor(diff % 86400 / 3600));
+    els.m.textContent = pad(Math.floor(diff % 3600 / 60));
+    els.s.textContent = pad(diff % 60);
+  }
+
+  var tick = setInterval(function () { if (!stoppedAt) render(); }, 250);
+  render();
+
+  var mode = "stop"; // "stop" -> "emergency"
+
+  function markWon(animate) {
+    mode = "emergency";
+    document.body.classList.add("won");
+    stopBtn.classList.add("emergency");
+    stopBtn.textContent = "EMERGENCY";
+    $("status").textContent = "🎉 RELEASED! 🎉";
+    if (animate) confetti();
+  }
+
+  function markRunning() {
+    mode = "stop";
+    document.body.classList.remove("won");
+    stopBtn.classList.remove("emergency");
+    stopBtn.textContent = "STOP";
+    $("status").textContent = "";
+  }
+
+  if (stoppedAt) markWon(false);
+
+  function openModal() {
+    if (mode === "stop") {
+      $("msg").innerHTML = "<b>!danger!</b> pressing stop means that it was released and it will stop the timer";
+      $("confirm").textContent = "Stop";
+    } else {
+      $("msg").innerHTML = "<b>has bugs, rollback</b>";
+      $("confirm").textContent = "Rollback";
+    }
+    overlay.classList.add("open");
+  }
+
+  stopBtn.addEventListener("click", openModal);
+  $("cancel").addEventListener("click", function () { overlay.classList.remove("open"); });
+  overlay.addEventListener("click", function (e) { if (e.target === overlay) overlay.classList.remove("open"); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") overlay.classList.remove("open"); });
+
+  $("confirm").addEventListener("click", function () {
+    overlay.classList.remove("open");
+    if (mode === "stop") {
+      stoppedAt = Date.now();
+      try { localStorage.setItem(KEY, String(stoppedAt)); } catch (e) {}
+      render();
+      markWon(true);
+    } else {
+      // rollback: restart the timer from now
+      stoppedAt = null;
+      START = Date.now();
+      try { localStorage.removeItem(KEY); localStorage.setItem(KEY_START, String(START)); } catch (e) {}
+      markRunning();
+      render();
+    }
+  });
+
+  // ---- Simple confetti animation ----
+  function confetti() {
+    var c = $("fx"), ctx = c.getContext("2d");
+    function size() { c.width = innerWidth; c.height = innerHeight; }
+    size(); addEventListener("resize", size);
+    var colors = ["#3ddc84","#ffd60a","#ff453a","#0a84ff","#bf5af2","#ffffff"];
+    var parts = [];
+    for (var i = 0; i < 220; i++) {
+      parts.push({
+        x: Math.random() * c.width, y: -20 - Math.random() * c.height * 0.6,
+        w: 6 + Math.random() * 8, h: 8 + Math.random() * 10,
+        vx: -2 + Math.random() * 4, vy: 2 + Math.random() * 5,
+        r: Math.random() * 6.28, vr: -.2 + Math.random() * .4,
+        col: colors[(Math.random() * colors.length) | 0]
+      });
+    }
+    var t0 = performance.now();
+    (function frame(t) {
+      ctx.clearRect(0, 0, c.width, c.height);
+      var alive = false;
+      parts.forEach(function (p) {
+        p.x += p.vx; p.y += p.vy; p.r += p.vr; p.vy += 0.04;
+        if (p.y < c.height + 30) alive = true;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r);
+        ctx.fillStyle = p.col; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+        ctx.restore();
+      });
+      if (alive && t - t0 < 9000) requestAnimationFrame(frame);
+      else ctx.clearRect(0, 0, c.width, c.height);
+    })(t0);
+  }
+})();
+</script>
+</body>
+</html>
