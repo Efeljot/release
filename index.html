@@ -41,6 +41,14 @@
   #stop:active { transform:translateY(8px); box-shadow:0 2px 0 #5c0912, 0 6px 16px rgba(225,29,46,.4); }
   #stop[disabled] { filter:grayscale(.9) brightness(.5); cursor:default; transform:translateY(8px); box-shadow:0 2px 0 #333; }
 
+  #stop.emergency {
+    background: radial-gradient(circle at 35% 30%, #ffb347, #ff7a00 45%, #a84300);
+    box-shadow: 0 10px 0 #5e2700, 0 18px 40px rgba(255,122,0,.45), inset 0 -6px 12px rgba(0,0,0,.25);
+    font-size:clamp(1.4rem,5vw,2.4rem); animation:blink 1s ease-in-out infinite;
+  }
+  #stop.emergency:active { box-shadow:0 2px 0 #5e2700, 0 6px 16px rgba(255,122,0,.4); }
+  @keyframes blink { 50% { filter:brightness(1.25); } }
+
   /* MODAL */
   .overlay { position:fixed; inset:0; background:rgba(0,0,0,.75); display:none; align-items:center; justify-content:center; padding:16px; z-index:10; }
   .overlay.open { display:flex; }
@@ -81,7 +89,7 @@
 
 <div class="overlay" id="overlay" role="dialog" aria-modal="true">
   <div class="modal">
-    <p><b>!danger!</b> pressing stop means that it was released and it will stop the timer</p>
+    <p id="msg"><b>!danger!</b> pressing stop means that it was released and it will stop the timer</p>
     <div class="actions">
       <button id="confirm" type="button">Stop</button>
       <button id="cancel" type="button">Cancel</button>
@@ -96,6 +104,8 @@
   // ---- CONFIG: start date (local time). Year = current year. ----
   var START = new Date(new Date().getFullYear(), 10, 5, 0, 0, 0).getTime(); // 5 Nov, 00:00
   var KEY = "av11406_stopped_at";
+  var KEY_START = "av11406_start";
+  try { var saved = parseInt(localStorage.getItem(KEY_START), 10); if (saved) START = saved; } catch (e) {}
 
   var $ = function (id) { return document.getElementById(id); };
   var els = { d:$("d"), h:$("h"), m:$("m"), s:$("s") };
@@ -117,27 +127,58 @@
   var tick = setInterval(function () { if (!stoppedAt) render(); }, 250);
   render();
 
+  var mode = "stop"; // "stop" -> "emergency"
+
   function markWon(animate) {
+    mode = "emergency";
     document.body.classList.add("won");
-    stopBtn.disabled = true;
-    stopBtn.textContent = "RELEASED";
+    stopBtn.classList.add("emergency");
+    stopBtn.textContent = "EMERGENCY";
     $("status").textContent = "🎉 RELEASED! 🎉";
     if (animate) confetti();
   }
 
+  function markRunning() {
+    mode = "stop";
+    document.body.classList.remove("won");
+    stopBtn.classList.remove("emergency");
+    stopBtn.textContent = "STOP";
+    $("status").textContent = "";
+  }
+
   if (stoppedAt) markWon(false);
 
-  stopBtn.addEventListener("click", function () { overlay.classList.add("open"); });
+  function openModal() {
+    if (mode === "stop") {
+      $("msg").innerHTML = "<b>!danger!</b> pressing stop means that it was released and it will stop the timer";
+      $("confirm").textContent = "Stop";
+    } else {
+      $("msg").innerHTML = "<b>has bugs, rollback</b>";
+      $("confirm").textContent = "Rollback";
+    }
+    overlay.classList.add("open");
+  }
+
+  stopBtn.addEventListener("click", openModal);
   $("cancel").addEventListener("click", function () { overlay.classList.remove("open"); });
   overlay.addEventListener("click", function (e) { if (e.target === overlay) overlay.classList.remove("open"); });
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") overlay.classList.remove("open"); });
 
   $("confirm").addEventListener("click", function () {
     overlay.classList.remove("open");
-    stoppedAt = Date.now();
-    try { localStorage.setItem(KEY, String(stoppedAt)); } catch (e) {}
-    render();
-    markWon(true);
+    if (mode === "stop") {
+      stoppedAt = Date.now();
+      try { localStorage.setItem(KEY, String(stoppedAt)); } catch (e) {}
+      render();
+      markWon(true);
+    } else {
+      // rollback: restart the timer from now
+      stoppedAt = null;
+      START = Date.now();
+      try { localStorage.removeItem(KEY); localStorage.setItem(KEY_START, String(START)); } catch (e) {}
+      markRunning();
+      render();
+    }
   });
 
   // ---- Simple confetti animation ----
